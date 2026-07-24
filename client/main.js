@@ -1159,7 +1159,27 @@ function renderDashboard(mode) {
             actionBtn.onclick = () => switchMode('batch');
         } else {
             actionBtn.innerText = 'New Evaluation';
-            actionBtn.onclick = () => window.location.reload();
+            actionBtn.onclick = () => {
+                if (state.mode === 'mcq') {
+                    state.questions = [];
+                    window.saveState();
+                    state.results = null;
+                    if (window.clearPendingImage) window.clearPendingImage();
+                    if (elements.mcqFile) elements.mcqFile.value = '';
+                    switchMode('mcq');
+                } else if (state.mode === 'theory') {
+                    state.results = null;
+                    if (window.clearTheoryFile) window.clearTheoryFile({ stopPropagation: () => {} });
+                    
+                    const theoryMaxMarks = document.getElementById('theoryMaxMarks');
+                    if (theoryMaxMarks) theoryMaxMarks.value = '';
+                    
+                    if (elements.theoryContext) elements.theoryContext.value = '';
+                    if (elements.removeQPaperBtn) elements.removeQPaperBtn.click();
+                    
+                    switchMode('theory');
+                }
+            };
         }
     }
 
