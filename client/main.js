@@ -1543,10 +1543,35 @@ function triggerConfetti() {
             closeAllHCDropdowns();
             showConfirmModal(
                 'Logout',
-                'Are you sure you want to logout? Your local data will be preserved.',
+                'Are you sure you want to logout? This will end your current session.',
                 () => {
-                    // Clear session keys but keep answer-key state
+                    // 1. Clear LocalStorage Session keys (do NOT clear theme)
                     localStorage.removeItem('gemini_api_key');
+                    localStorage.removeItem('evalApp_activeMode');
+                    localStorage.removeItem('evalApp_inDashboard');
+                    
+                    // 2. Clear state variables
+                    state.questions = [];
+                    state.results = null;
+                    state.history = [];
+                    state.theoryFile = null;
+                    state.qPaperFile = null;
+                    state.batchStep = 1;
+                    
+                    // 3. Clear UI Elements
+                    if (window.clearPendingImage) window.clearPendingImage();
+                    if (window.clearTheoryFile) window.clearTheoryFile({ stopPropagation: () => {} });
+                    if (elements.mcqFile) elements.mcqFile.value = '';
+                    const theoryMaxMarks = document.getElementById('theoryMaxMarks');
+                    if (theoryMaxMarks) theoryMaxMarks.value = '';
+                    if (elements.theoryContext) elements.theoryContext.value = '';
+                    if (elements.qPaperContext) elements.qPaperContext.value = '';
+                    
+                    // 4. Reset to default view internally
+                    switchMode('mcq');
+                    
+                    // 5. Navigate to Landing
+                    window.goToLanding();
                     showNotification('Logged out successfully.', 'success');
                 }
             );
