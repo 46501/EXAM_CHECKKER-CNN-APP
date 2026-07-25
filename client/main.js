@@ -5,7 +5,7 @@ const state = {
     results: null,
     history: [], // Storing multiple results for analytics
     theoryFile: null,
-    backendUrl: '',  // Empty = relative URL (works on both localhost and deployed Render URL)
+    backendUrl: (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost' || window.location.protocol === 'file:') && window.location.port !== '8000' ? 'http://127.0.0.1:8000' : '',
     cropper: null,
     capturePurpose: 'student', // 'student', 'master', 'theory'
     batchStep: 1

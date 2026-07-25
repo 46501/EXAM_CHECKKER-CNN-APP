@@ -68,16 +68,20 @@ async def evaluate_mcq(
     config: str = Form(...),
     x_gemini_api_key: str = Header(None)
 ):
-    print(f"[SERVER] Received MCQ Upload: {file.filename}")
     try:
+        filename = file.filename.encode('ascii', 'ignore').decode() if file.filename else "unknown"
+        print(f"[SERVER] Received MCQ Upload: {filename}")
         question_key = json.loads(config)
         image_bytes = await file.read()
         results = processor.process_omr(image_bytes, question_key, x_gemini_api_key)
         return {"status": "success", "results": results}
     except Exception as e:
         import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))
+        try:
+            traceback.print_exc()
+        except Exception:
+            pass
+        raise HTTPException(status_code=500, detail=str(e) if str(e) else "Unknown Server Error")
 
 @app.post("/evaluate/theory")
 async def evaluate_theory(
@@ -86,8 +90,9 @@ async def evaluate_theory(
     max_marks: float = Form(...),
     x_gemini_api_key: str = Header(None)
 ):
-    print(f"[SERVER] Theory Evaluation Request Received")
     try:
+        filename = file.filename.encode('ascii', 'ignore').decode() if file.filename else "unknown"
+        print(f"[SERVER] Theory Evaluation Request Received: {filename}")
         image_bytes = await file.read()
         print(f"[SERVER] Read {len(image_bytes)} bytes for theory")
         
@@ -99,8 +104,11 @@ async def evaluate_theory(
     except Exception as e:
         import traceback
         print("[CRITICAL] Theory Evaluation Failed!")
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))
+        try:
+            traceback.print_exc()
+        except Exception:
+            pass
+        raise HTTPException(status_code=500, detail=str(e) if str(e) else "Unknown Server Error")
 
 # --- STATIC FILE SERVING (for deployment) ---
 # Serve the client folder so frontend and backend run on the same URL
