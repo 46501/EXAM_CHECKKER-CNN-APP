@@ -8,14 +8,16 @@ const state = {
     backendUrl: (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost' || window.location.protocol === 'file:') && window.location.port !== '8000' ? 'http://127.0.0.1:8000' : '',
     cropper: null,
     capturePurpose: 'student', // 'student', 'master', 'theory'
-    batchStep: 1
+    batchStep: 1,
+    mcqStep: 1
 };
 
 window.saveState = function() {
     const dataToSave = {
         questions: state.questions,
         history: state.history,
-        batchStep: state.batchStep || 1
+        batchStep: state.batchStep || 1,
+        mcqStep: state.mcqStep || 1
     };
     localStorage.setItem('evalApp_batchState', JSON.stringify(dataToSave));
 };
@@ -28,6 +30,7 @@ window.loadState = function() {
             state.questions = parsed.questions || [];
             state.history = parsed.history || [];
             state.batchStep = parsed.batchStep || 1;
+            state.mcqStep = parsed.mcqStep || 1;
         } catch(e) {}
     }
 };
@@ -250,7 +253,7 @@ function switchMode(mode) {
             elements.mcqInit.style.display = 'block';
             elements.mcqConfig.style.display = 'none';
         }
-        switchWizardStep(1);
+        window.switchWizardStep(state.mcqStep || 1);
     } else if (mode === 'batch') {
         elements.batchView.style.display = 'block';
         if (state.questions.length > 0) {
@@ -277,6 +280,9 @@ function hideAllViews() {
 }
 
 window.switchWizardStep = (step) => {
+    state.mcqStep = step;
+    window.saveState();
+    
     document.querySelectorAll('.wizard-step').forEach(s => s.classList.remove('active'));
     document.getElementById(`wizardStep${step}`).classList.add('active');
 
@@ -417,6 +423,7 @@ function setupEventListeners() {
 
     elements.resetMcqBtn.onclick = () => {
         state.questions = [];
+        state.mcqStep = 1;
         window.saveState();
         switchMode('mcq');
     };
@@ -1162,6 +1169,7 @@ function renderDashboard(mode) {
             actionBtn.onclick = () => {
                 if (state.mode === 'mcq') {
                     state.questions = [];
+                    state.mcqStep = 1;
                     window.saveState();
                     state.results = null;
                     if (window.clearPendingImage) window.clearPendingImage();
@@ -1549,6 +1557,7 @@ function triggerConfetti() {
                     localStorage.removeItem('gemini_api_key');
                     localStorage.removeItem('evalApp_activeMode');
                     localStorage.removeItem('evalApp_inDashboard');
+                    localStorage.removeItem('evalApp_batchState');
                     
                     // 2. Clear state variables
                     state.questions = [];
@@ -1557,6 +1566,7 @@ function triggerConfetti() {
                     state.theoryFile = null;
                     state.qPaperFile = null;
                     state.batchStep = 1;
+                    state.mcqStep = 1;
                     
                     // 3. Clear UI Elements
                     if (window.clearPendingImage) window.clearPendingImage();
