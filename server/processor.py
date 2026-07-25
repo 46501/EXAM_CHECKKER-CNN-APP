@@ -20,7 +20,7 @@ else:
 
 genai.configure(api_key=api_key)
 
-from reportlab.lib.pagesizes import letter
+from reportlab.lib.pagesizes import letter, A4
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
@@ -54,70 +54,108 @@ class EvaluationProcessor:
     def generate_pdf_report(self, data):
         """Generates a professional PDF report from the evaluation data."""
         buffer = BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=72, leftMargin=72, topMargin=72, bottomMargin=18)
+        # Adjusted margins to fit more content and look balanced on A4
+        doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
         styles = getSampleStyleSheet()
         elements = []
 
-        # Styles
-        title_style = ParagraphStyle('TitleStyle', parent=styles['Heading1'], alignment=1, spaceAfter=20, fontSize=24, textColor=colors.HexColor("#6366f1"))
-        header_style = ParagraphStyle('HeaderStyle', parent=styles['Heading2'], fontSize=16, textColor=colors.HexColor("#1e293b"), spaceAfter=12)
-        normal_style = styles['Normal']
-        
-        elements.append(Paragraph("AvalAI - Evaluation Report", title_style))
-        elements.append(Spacer(1, 12))
+        # Color Palette - Scorify Branding
+        brand_color = colors.HexColor("#6366f1")
+        brand_dark = colors.HexColor("#4f46e5")
+        text_dark = colors.HexColor("#1e293b")
+        text_muted = colors.HexColor("#64748b")
+        border_color = colors.HexColor("#e2e8f0")
+        bg_light = colors.HexColor("#f8fafc")
+        pass_color = colors.HexColor("#10b981")
+        fail_color = colors.HexColor("#ef4444")
 
+        # Typography
+        title_style = ParagraphStyle('TitleStyle', parent=styles['Heading1'], alignment=1, spaceAfter=4, fontSize=24, textColor=brand_color, fontName='Helvetica-Bold')
+        subtitle_style = ParagraphStyle('SubTitleStyle', parent=styles['Normal'], alignment=1, spaceAfter=20, fontSize=11, textColor=text_muted)
+        
+        section_title_style = ParagraphStyle('SectionTitleStyle', parent=styles['Heading2'], fontSize=14, textColor=brand_dark, spaceAfter=10, fontName='Helvetica-Bold', borderPadding=0)
+        
+        normal_style = ParagraphStyle('NormalStyle', parent=styles['Normal'], fontSize=10, textColor=text_dark, spaceAfter=6, leading=14)
+        center_style = ParagraphStyle('CenterStyle', parent=normal_style, alignment=1)
+        
+        # Header
+        elements.append(Paragraph("Scorify Evaluation Report", title_style))
+        elements.append(Paragraph("Automated Assessment & AI Grading", subtitle_style))
+        
+        # Compute summary metrics
         score = float(data.get('score', 0))
         maxScore = float(data.get('maxScore', 0))
         percentage = (score / maxScore * 100) if maxScore > 0 else 0
         status = "PASSED" if percentage >= 50 else "FAILED"
-        status_color = colors.HexColor("#10b981") if status == "PASSED" else colors.HexColor("#f43f5e")
+        status_color = pass_color if status == "PASSED" else fail_color
 
-        # Summary Header Table
-        meta_data = [
-            ["Metric", "Value"],
-            ["Evaluation Mode", data.get('mode', 'N/A').upper()],
-            ["Total Marks", f"{score} / {maxScore} ({percentage:.1f}%)"],
-            ["Final Status", status]
+        # 1. SUMMARY CARD
+        elements.append(Paragraph("Summary Overview", section_title_style))
+        
+        summary_data = [
+            [
+                Paragraph("<b>Evaluation Mode</b>", center_style), 
+                Paragraph("<b>Total Score</b>", center_style), 
+                Paragraph("<b>Percentage</b>", center_style), 
+                Paragraph("<b>Final Status</b>", center_style)
+            ],
+            [
+                Paragraph(f"{data.get('mode', 'N/A').upper()}", center_style),
+                Paragraph(f"{score:.1f} / {maxScore:.1f}", center_style),
+                Paragraph(f"{percentage:.1f}%", center_style),
+                Paragraph(f"<font color='{status_color.hexval()}'><b>{status}</b></font>", center_style)
+            ]
         ]
         
-        t = Table(meta_data, colWidths=[150, 200])
-        t.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#f8fafc")),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor("#6366f1")),
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 12),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
-            ('TEXTCOLOR', (1, 3), (1, 3), status_color),
-            ('BOX', (0,0), (-1,-1), 1, colors.HexColor("#e2e8f0"))
+        # Card style table spanning full width
+        summary_table = Table(summary_data, colWidths=[128, 128, 128, 128])
+        summary_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), bg_light),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('TOPPADDING', (0, 0), (-1, -1), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+            ('LINEBELOW', (0, 0), (-1, 0), 1, border_color),
+            ('BOX', (0, 0), (-1, -1), 1, border_color),
         ]))
-        elements.append(t)
-        elements.append(Spacer(1, 32))
+        
+        elements.append(summary_table)
+        elements.append(Spacer(1, 15))
 
         if data.get('mode') == 'mcq':
-            elements.append(Paragraph("MCQ Performance Summary", header_style))
-            elements.append(Spacer(1, 6))
+            # MCQ Performance Stats
+            elements.append(Paragraph("Performance Metrics", section_title_style))
             
-            summary_highlights = [
-                ["Questions Attempted", len(data.get('detailed', []))],
-                ["Correct Answers", data.get('correctCount', 0)],
-                ["Incorrect Answers", data.get('incorrectCount', 0)],
-                ["Total Negative Penalty", f"-{data.get('penalty', 0)}"]
+            stats_data = [
+                [Paragraph("<b>Questions Attempted</b>", normal_style), str(len(data.get('detailed', [])))],
+                [Paragraph("<b>Correct Answers</b>", normal_style), str(data.get('correctCount', 0))],
+                [Paragraph("<b>Incorrect Answers</b>", normal_style), str(data.get('incorrectCount', 0))],
+                [Paragraph("<b>Negative Penalty</b>", normal_style), f"-{data.get('penalty', 0)}"]
             ]
-            st = Table(summary_highlights, colWidths=[150, 150])
-            st.setStyle(TableStyle([
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor("#fdfdfd"))
+            stats_table = Table(stats_data, colWidths=[256, 256])
+            stats_table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+                ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('TOPPADDING', (0, 0), (-1, -1), 6),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                ('LINEBELOW', (0, 0), (-1, -2), 0.5, border_color),
+                ('BOX', (0, 0), (-1, -1), 1, border_color),
+                ('BACKGROUND', (0, 0), (-1, -1), colors.white),
             ]))
-            elements.append(st)
-            elements.append(Spacer(1, 32))
+            elements.append(stats_table)
+            elements.append(Spacer(1, 15))
 
-            elements.append(Paragraph("Question-by-Question Breakdown", header_style))
-            elements.append(Spacer(1, 12))
-            table_data = [["Question #", "Student Option", "Correct Option", "Result", "Marks Gained"]]
+            # Q-by-Q Breakdown
+            elements.append(Paragraph("Question-by-Question Breakdown", section_title_style))
+            
+            table_data = [["Q #", "Student Option", "Correct Option", "Result", "Marks Gained"]]
+            
             for res in data.get('detailed', []):
-                result_mark = "PASS" if res.get('isCorrect') else "FAIL"
+                is_correct = res.get('isCorrect')
+                result_mark = "PASS" if is_correct else "FAIL"
+                res_color = pass_color if is_correct else fail_color
+                
                 try:
                     m = res.get('marksGained', 0)
                     marks_str = f"{float(m):.2f}"
@@ -126,45 +164,88 @@ class EvaluationProcessor:
 
                 table_data.append([
                     str(res.get('q', 'N/A')), 
-                    str(res.get('selected') or 'EMPTY'), 
+                    str(res.get('selected') or '-'), 
                     str(res.get('correctAnswer', 'N/A')), 
-                    result_mark, 
+                    Paragraph(f"<font color='{res_color.hexval()}'><b>{result_mark}</b></font>", center_style),
                     marks_str
                 ])
-            
-            bt = Table(table_data, colWidths=[80, 100, 100, 70, 90])
+                
+            # Full width is 515.2 (A4 width 595.2 - 80 margins)
+            bt = Table(table_data, colWidths=[50, 120, 120, 120, 105], repeatRows=1)
             bt.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#1e293b")),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('BACKGROUND', (0, 0), (-1, 0), brand_color),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
                 ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
                 ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
                 ('FONTSIZE', (0, 0), (-1, -1), 10),
-                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey)
+                ('TOPPADDING', (0, 0), (-1, -1), 6),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                ('GRID', (0, 0), (-1, -1), 0.5, border_color),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, bg_light])
             ]))
             elements.append(bt)
-        else:
-            elements.append(Paragraph("Theory Evaluation Feedback", header_style))
-            elements.append(Spacer(1, 12))
             
+        else:
+            # Theory Feedback
+            elements.append(Paragraph("Theory Evaluation Feedback", section_title_style))
+            
+            # Card for Student Transcription
             elements.append(Paragraph("<b>Student Transcription:</b>", normal_style))
-            elements.append(Paragraph(data.get('extractedText', 'No text extracted'), styles['Italic']))
-            elements.append(Spacer(1, 12))
+            transcription = data.get('extractedText', 'No text extracted')
+            trans_table = Table([[Paragraph(f"<i>{transcription}</i>", normal_style)]], colWidths=[515])
+            trans_table.setStyle(TableStyle([
+                ('BACKGROUND', (0,0), (-1,-1), bg_light),
+                ('BOX', (0,0), (-1,-1), 1, border_color),
+                ('TOPPADDING', (0,0), (-1,-1), 10),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 10),
+                ('LEFTPADDING', (0,0), (-1,-1), 12),
+                ('RIGHTPADDING', (0,0), (-1,-1), 12)
+            ]))
+            elements.append(trans_table)
+            elements.append(Spacer(1, 15))
             
             feedback = data.get('feedback', {})
+            elements.append(Paragraph("<b>AI Feedback & Suggestions:</b>", normal_style))
+            
             if isinstance(feedback, dict):
-                elements.append(Paragraph(f"<b>Strengths Identified:</b> {feedback.get('strengths', 'N/A')}", normal_style))
-                elements.append(Spacer(1, 6))
-                elements.append(Paragraph(f"<b>Deduction Rationale:</b> {feedback.get('deductions', 'N/A')}", normal_style))
-                elements.append(Spacer(1, 6))
-                elements.append(Paragraph(f"<b>Suggested Improvements:</b> {feedback.get('improvements', 'N/A')}", normal_style))
+                fb_text = feedback.get('feedback', 'No feedback provided.')
+                
+                # Card for Feedback
+                fb_table = Table([[Paragraph(fb_text, normal_style)]], colWidths=[515])
+                fb_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0,0), (-1,-1), colors.white),
+                    ('BOX', (0,0), (-1,-1), 1, border_color),
+                    ('TOPPADDING', (0,0), (-1,-1), 10),
+                    ('BOTTOMPADDING', (0,0), (-1,-1), 10),
+                    ('LEFTPADDING', (0,0), (-1,-1), 12),
+                    ('RIGHTPADDING', (0,0), (-1,-1), 12)
+                ]))
+                elements.append(fb_table)
+                elements.append(Spacer(1, 15))
+                
+                improvements = feedback.get('improvements', [])
+                if improvements:
+                    elements.append(Paragraph("<b>Actionable Improvements:</b>", normal_style))
+                    imp_data = [[Paragraph(f"<bullet>•</bullet> {imp}", normal_style)] for imp in improvements]
+                    imp_table = Table(imp_data, colWidths=[515])
+                    imp_table.setStyle(TableStyle([
+                        ('BACKGROUND', (0,0), (-1,-1), colors.white),
+                        ('BOX', (0,0), (-1,-1), 1, border_color),
+                        ('LINEBELOW', (0,0), (-1,-2), 0.5, border_color),
+                        ('TOPPADDING', (0,0), (-1,-1), 8),
+                        ('BOTTOMPADDING', (0,0), (-1,-1), 8),
+                        ('LEFTPADDING', (0,0), (-1,-1), 12),
+                        ('RIGHTPADDING', (0,0), (-1,-1), 12)
+                    ]))
+                    elements.append(imp_table)
             else:
                 elements.append(Paragraph(str(feedback), normal_style))
-
+                
         # Footer
         footer_style = ParagraphStyle('FooterStyle', parent=styles['Italic'], fontSize=8, textColor=colors.grey, alignment=1)
         elements.append(Spacer(1, 48))
-        elements.append(Paragraph("This is an AI-generated academic evaluation by EvalAI. Results should be verified by an instructor.", footer_style))
+        elements.append(Paragraph("This is an AI-generated academic evaluation by Scorify. Results should be verified by an instructor.", footer_style))
         
         try:
             doc.build(elements)
@@ -232,7 +313,9 @@ class EvaluationProcessor:
                 print(f"[RECOVERY] Model {model_name} failed: {str(e)}")
         
         # Re-raise standard exception if all models fail
-        raise last_error
+        if last_error is not None:
+            raise last_error
+        raise Exception("All models failed and no exceptions were caught.")
 
     def process_master_key(self, image_bytes, api_key=None):
         nparr = np.frombuffer(image_bytes, np.uint8); img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
