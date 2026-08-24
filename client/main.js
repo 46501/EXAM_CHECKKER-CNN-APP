@@ -367,7 +367,7 @@ function renderQuestions() {
             <td>
                 <div style="display: flex; align-items: center; gap: 0.5rem;">
                     <input type="checkbox" ${q.negativeEnabled ? 'checked' : ''} onchange="updateQuestion(${index}, 'negativeEnabled', this.checked)">
-                    <input type="number" value="${q.negativeValue}" step="0.25" min="0" style="width: 80px;" 
+                    <input type="number" value="${q.negativeValue}" step="0.25" min="0" style="width: 120px;" 
                            ${!q.negativeEnabled ? 'disabled' : ''}
                            oninput="updateQuestion(${index}, 'negativeValue', parseFloat(this.value) || 0)">
                 </div>
