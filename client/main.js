@@ -1682,3 +1682,91 @@ function triggerConfetti() {
 })();
 
 init();
+
+
+// ==========================================
+// 3D HERO INTERACTION LOGIC
+// ==========================================
+document.addEventListener('DOMContentLoaded', () => {
+    const heroScene = document.getElementById('hero3DScene');
+    const heroObject = document.getElementById('hero3DObject');
+    const heroFront = document.getElementById('hero3DFront');
+    const heroBack = document.getElementById('hero3DBack');
+    const rotationHint = document.getElementById('rotationHint');
+    
+    if (heroScene && heroObject && heroFront && heroBack) {
+        // Clone the front content into the back face so it's visible on both sides
+        heroBack.innerHTML = heroFront.innerHTML;
+
+        let isDragging3D = false;
+        let targetRotationY = -15; // Starting rotation
+        let currentRotationY = -15;
+        let lastMouseX = 0;
+        let velocityY = 0;
+        let animationFrameId;
+
+        // Base static rotation (when not interacting)
+        const baseX = 8;
+        const baseZ = 0;
+
+        function updateTransform() {
+            heroObject.style.transform = `rotateY(${currentRotationY}deg) rotateX(${baseX}deg) rotateZ(${baseZ}deg) scale(0.95)`;
+        }
+
+        // Apply momentum/friction loop
+        function applyMomentum() {
+            if (!isDragging3D) {
+                targetRotationY += velocityY;
+                currentRotationY += (targetRotationY - currentRotationY) * 0.1; // Ease towards target
+                velocityY *= 0.95; // Friction
+
+                updateTransform();
+            }
+            animationFrameId = requestAnimationFrame(applyMomentum);
+        }
+
+        function startDrag(clientX) {
+            isDragging3D = true;
+            lastMouseX = clientX;
+            velocityY = 0;
+            heroScene.style.cursor = 'grabbing';
+            heroObject.style.transition = 'none'; // Smooth dragging without CSS delay
+            if (rotationHint) {
+                rotationHint.style.opacity = '0'; // Hide hint when interacted
+            }
+        }
+
+        function moveDrag(clientX) {
+            if (!isDragging3D) return;
+            const deltaX = clientX - lastMouseX;
+            lastMouseX = clientX;
+            
+            // Adjust sensitivity
+            velocityY = deltaX * 0.5;
+            targetRotationY += deltaX * 0.5;
+            currentRotationY = targetRotationY;
+            
+            updateTransform();
+        }
+
+        function endDrag() {
+            if (isDragging3D) {
+                isDragging3D = false;
+                heroScene.style.cursor = 'grab';
+            }
+        }
+
+        // Mouse Events
+        heroScene.addEventListener('mousedown', (e) => startDrag(e.clientX));
+        window.addEventListener('mousemove', (e) => moveDrag(e.clientX));
+        window.addEventListener('mouseup', endDrag);
+
+        // Touch Events
+        heroScene.addEventListener('touchstart', (e) => startDrag(e.touches[0].clientX));
+        window.addEventListener('touchmove', (e) => moveDrag(e.touches[0].clientX));
+        window.addEventListener('touchend', endDrag);
+
+        // Start animation loop
+        applyMomentum();
+    }
+});

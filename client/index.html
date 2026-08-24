@@ -69,15 +69,27 @@
                 </div>
             </div>
             
-            <!-- RIGHT COLUMN (Tilted Dashboard Mockup) -->
-            <div style="flex: 1.2; position: relative; perspective: 1200px; display: flex; justify-content: flex-end; align-items: center; min-height: 600px; min-width: 600px;">
+                        <!-- RIGHT COLUMN (Interactive 3D Dashboard) -->
+            <div id="hero3DScene" style="flex: 1.2; position: relative; perspective: 1500px; display: flex; justify-content: flex-end; align-items: center; min-height: 600px; min-width: 600px; cursor: grab; user-select: none;">
                 <!-- Glowing backdrop -->
                 <div style="position: absolute; right: 10%; top: 20%; width: 60%; height: 60%; background: var(--primary); filter: blur(140px); opacity: 0.25; border-radius: 50%; pointer-events: none; z-index: 0;"></div>
                 
-                <!-- Dashboard Mockup Frame -->
-                <div style="width: 100%; max-width: 900px; min-height: 540px; background: var(--mock-bg); backdrop-filter: blur(20px); border-radius: 16px; border: 1px solid rgba(99, 102, 241, 0.4); box-shadow: 0 30px 60px rgba(0,0,0,0.6), inset 0 0 0 1px var(--hover-bg); overflow: hidden; transform: rotateY(-15deg) rotateX(8deg) rotateZ(0deg) scale(0.95); transform-style: preserve-3d; position: relative; z-index: 10;">
+                <!-- Rotation Hint -->
+                <div style="position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 0.5rem; color: var(--primary); font-weight: 600; font-size: 0.95rem; z-index: 20; pointer-events: none; background: rgba(99, 102, 241, 0.1); padding: 0.5rem 1.2rem; border-radius: 99px; border: 1px solid rgba(99, 102, 241, 0.2); box-shadow: 0 4px 12px rgba(0,0,0,0.1); transition: opacity 0.3s ease;" id="rotationHint">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 17l-5-5 5-5M13 17l5-5-5-5"/></svg>
+                    Drag to rotate
+                </div>
+
+                <!-- Interactive 3D Object -->
+                <div id="hero3DObject" style="width: 100%; max-width: 900px; min-height: 540px; transform-style: preserve-3d; position: relative; z-index: 10; transform: rotateY(-15deg) rotateX(8deg) rotateZ(0deg) scale(0.95); transition: transform 0.1s linear;">
                     
-                    <div style="display: flex; height: 100%;">
+                    <!-- Solid Core for Depth -->
+                    <div style="position: absolute; inset: 2px; background: rgba(99, 102, 241, 0.2); border-radius: 14px; transform: translateZ(0); box-shadow: 0 0 30px rgba(99,102,241,0.2); pointer-events: none;"></div>
+
+                    <!-- Front Face -->
+                    <div id="hero3DFront" class="dashboard-face" style="position: absolute; inset: 0; backface-visibility: hidden; background: var(--mock-bg); backdrop-filter: blur(20px); border-radius: 16px; border: 1px solid rgba(99, 102, 241, 0.4); box-shadow: 0 30px 60px rgba(0,0,0,0.6), inset 0 0 0 1px var(--hover-bg); overflow: hidden; transform: translateZ(4px);">
+                        
+<div style="display: flex; height: 100%;">
                         <!-- Mock Sidebar -->
                         <div style="width: 220px; background: var(--mock-sidebar-bg); border-right: 1px solid var(--border); padding: 1.5rem; display: flex; flex-direction: column; gap: 0.5rem;">
                             <div style="display: flex; align-items: center; gap: 0.5rem; color: var(--white-to-dark); font-weight: bold; font-size: 1.1rem; margin-bottom: 2.5rem;">
@@ -171,7 +183,6 @@
                                 </div>
                             </div>
                         </div>
-                    </div>
                 </div>
             </div>
         </div>
