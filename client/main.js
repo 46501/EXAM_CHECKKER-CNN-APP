@@ -269,6 +269,9 @@ function switchMode(mode) {
     } else if (mode === 'analytics') {
         elements.analyticsView.style.display = 'block';
         updateAnalytics();
+    } else if (mode === 'history') {
+        document.getElementById('historySection').style.display = 'block';
+        if(window.fetchHistory) window.fetchHistory();
     } else {
         elements.theoryInput.style.display = 'block';
     }
@@ -707,6 +710,10 @@ async function handleBatch(rawFiles) {
                 state.history.push({ filename: file.name, ...res, isError: false });
                 addBatchRow(file.name, res);
                 window.saveState();
+                
+                // Save to History Database
+                res.studentName = file.name;
+                window.saveHistoryToDB(res, 'batch');
             } else {
                 throw new Error('Evaluation failed');
             }
@@ -1043,6 +1050,9 @@ async function processTheoryFinal() {
         const data = await response.json();
         state.results = { mode: 'theory', ...data };
         renderDashboard('theory');
+        
+        // Save to History Database
+        window.saveHistoryToDB(state.results, 'theory');
     } catch (err) {
         console.error(err);
         showNotification(err.message || 'Unable to process your evaluation right now. Please try again later.', 'error');
@@ -1081,6 +1091,9 @@ async function processMCQ(imageBlob) {
             state.history.push({ filename: 'Scan_' + Date.now(), ...state.results });
             window.saveState();
             renderDashboard('mcq');
+            
+            // Save to History Database
+            window.saveHistoryToDB(state.results, 'mcq');
         } else {
             throw new Error(data.detail || 'OMR processing failed');
         }
@@ -1829,3 +1842,186 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
+// ==========================================
+// EVALUATION HISTORY API LOGIC
+// ==========================================
+
+window.fetchHistory = async function() {
+    const section = document.getElementById('historySection');
+    const tableContainer = document.getElementById('historyTable');
+    const tbody = document.getElementById('historyTableBody');
+    const loading = document.getElementById('historyLoadingState');
+    const empty = document.getElementById('historyEmptyState');
+    const errState = document.getElementById('historyErrorState');
+
+    if (!section || section.style.display === 'none') return;
+
+    loading.style.display = 'block';
+    tableContainer.style.display = 'none';
+    empty.style.display = 'none';
+    errState.style.display = 'none';
+
+    try {
+        const response = await fetch(`${state.backendUrl}/api/evaluations`);
+        if (!response.ok) throw new Error('Network response was not ok');
+        
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            if (data.evaluations.length === 0) {
+                loading.style.display = 'none';
+                empty.style.display = 'block';
+            } else {
+                tbody.innerHTML = '';
+                data.evaluations.forEach(ev => {
+                    const tr = document.createElement('tr');
+                    tr.style.borderBottom = '1px solid var(--border)';
+                    
+                    const pClass = ev.status === 'Pass' || ev.percentage >= 50 ? 'var(--success)' : 'var(--danger)';
+                    const displayStatus = ev.status || (ev.percentage >= 50 ? 'PASS' : 'FAIL');
+                    
+                    tr.innerHTML = `
+                        <td style="padding: 1rem 1.5rem; color: var(--text);">${ev.evaluation_date} <span class="text-dim" style="font-size:0.8rem; margin-left:0.5rem">${ev.evaluation_time}</span></td>
+                        <td style="padding: 1rem 1.5rem; color: var(--text);">${ev.student_name || 'N/A'}</td>
+                        <td style="padding: 1rem 1.5rem; color: var(--text);"><span style="background: rgba(99,102,241,0.1); color: var(--primary); padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem; font-weight: 600;">${ev.evaluation_type}</span></td>
+                        <td style="padding: 1rem 1.5rem; color: var(--text); font-weight: 500;">${ev.obtained_marks != null ? ev.obtained_marks : '-'} / ${ev.total_marks != null ? ev.total_marks : '-'}</td>
+                        <td style="padding: 1rem 1.5rem; color: var(--text);">${ev.percentage != null ? ev.percentage + '%' : '-'}</td>
+                        <td style="padding: 1rem 1.5rem; color: ${pClass}; font-weight: 600;">${displayStatus}</td>
+                        <td style="padding: 1rem 1.5rem; text-align: right; display: flex; gap: 0.5rem; justify-content: flex-end;">
+                            <button class="btn btn-outline" style="padding: 0.3rem 0.8rem; font-size: 0.85rem;" onclick="viewHistoryItem('${ev.id}')">View</button>
+                            <button class="btn" style="padding: 0.3rem 0.8rem; font-size: 0.85rem; background: transparent; border: 1px solid var(--danger); color: var(--danger);" onclick="deleteHistoryPrompt('${ev.id}')">Delete</button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+                loading.style.display = 'none';
+                tableContainer.style.display = 'table';
+            }
+        } else {
+            throw new Error(data.message || 'Unknown error fetching history');
+        }
+    } catch (err) {
+        console.error('History Fetch Error:', err);
+        loading.style.display = 'none';
+        errState.style.display = 'block';
+    }
+};
+
+window.viewHistoryItem = async function(id) {
+    showLoading('Loading evaluation result...');
+    try {
+        const response = await fetch(`${state.backendUrl}/api/evaluations/${id}`);
+        if (!response.ok) throw new Error('Failed to fetch evaluation details');
+        
+        const data = await response.json();
+        if (data.status === 'success' && data.evaluation) {
+            state.results = data.evaluation.detailed_result;
+            // Support injecting the mode properly
+            state.results.mode = data.evaluation.evaluation_type.toLowerCase();
+            
+            // Bypass processing pipeline and directly render the dashboard
+            renderDashboard(state.results.mode);
+        } else {
+            throw new Error('Invalid evaluation details format');
+        }
+    } catch (err) {
+        console.error('History View Error:', err);
+        showNotification('Unable to load evaluation details.', 'error');
+    } finally {
+        hideLoading();
+    }
+};
+
+let currentDeleteId = null;
+
+window.deleteHistoryPrompt = function(id) {
+    currentDeleteId = id;
+    openModal('deleteConfirmModal');
+};
+
+document.getElementById('confirmDeleteBtn')?.addEventListener('click', async () => {
+    if (!currentDeleteId) return;
+    
+    closeModal('deleteConfirmModal');
+    
+    try {
+        const response = await fetch(`${state.backendUrl}/api/evaluations/${currentDeleteId}`, {
+            method: 'DELETE'
+        });
+        
+        if (!response.ok) throw new Error('Delete failed');
+        
+        const data = await response.json();
+        if (data.status === 'success') {
+            showNotification('Evaluation deleted successfully', 'success');
+            fetchHistory(); // Refresh the table
+        } else {
+            throw new Error(data.message || 'Delete failed');
+        }
+    } catch (err) {
+        console.error('Delete Error:', err);
+        showNotification('Unable to delete evaluation.', 'error');
+    } finally {
+        currentDeleteId = null;
+    }
+});
+
+// Helper to save evaluated result to the database
+window.saveHistoryToDB = async function(resultData, type) {
+    try {
+        const d = new Date();
+        const evalDate = d.toLocaleDateString();
+        const evalTime = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+        let totalQ = null, attQ = null, corrQ = null, incorrQ = null, studentName = null;
+        let tMarks = 0, oMarks = 0, perc = 0, status = 'Pass';
+
+        if (type === 'mcq' || type === 'batch') {
+            tMarks = resultData.maxScore;
+            oMarks = resultData.score;
+            perc = resultData.percentage;
+            status = resultData.passed ? 'Pass' : 'Fail';
+            
+            totalQ = state.questions.length;
+            attQ = resultData.details ? resultData.details.filter(d => d.detected_option !== null && d.detected_option !== "").length : 0;
+            corrQ = resultData.correctCount;
+            incorrQ = totalQ - corrQ;
+            studentName = resultData.studentName || 'Student';
+        } else if (type === 'theory') {
+            tMarks = resultData.total_marks;
+            oMarks = resultData.obtained_marks;
+            perc = (oMarks / tMarks) * 100;
+            status = perc >= 50 ? 'Pass' : 'Fail';
+            studentName = 'Student'; // Modify if theory supports names
+        }
+
+        const payload = {
+            evaluation_type: type === 'batch' ? 'Batch' : (type === 'theory' ? 'Theory' : 'MCQ'),
+            student_name: studentName,
+            total_marks: tMarks,
+            obtained_marks: oMarks,
+            percentage: Math.round(perc * 100) / 100,
+            status: status,
+            total_questions: totalQ,
+            attempted_questions: attQ,
+            correct_answers: corrQ,
+            incorrect_answers: incorrQ,
+            evaluation_date: evalDate,
+            evaluation_time: evalTime,
+            detailed_result: resultData
+        };
+
+        const response = await fetch(`${state.backendUrl}/api/evaluations`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        if (!response.ok) {
+            console.error('Failed to save to history DB');
+        }
+    } catch (err) {
+        console.error('Failed to save history to DB:', err);
+    }
+};
