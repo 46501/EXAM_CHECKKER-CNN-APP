@@ -281,10 +281,10 @@ class EvaluationProcessor:
         try:
             if img is None: return img
             h, w = img.shape[:2]
-            # Bypass dangerous four-point cropping entirely. Native AI vision is vastly superior.
-            # Only apply quota-safe scaling to preserve crisp bubble fidelity up to 2400px max.
-            if max(h, w) > 2400:
-                scale = 2400 / max(h, w)
+            # Reduce resolution to prevent TCP timeout errors on large images
+            max_dim = 1200
+            if max(h, w) > max_dim:
+                scale = max_dim / max(h, w)
                 return cv2.resize(img, (int(w * scale), int(h * scale)))
             return img
         except Exception: 
@@ -302,15 +302,18 @@ class EvaluationProcessor:
         
         models_to_try = [self.primary_model_name, self.fallback_model_name, 'models/gemini-3.1-flash-lite-preview']
         last_error = None
+        import time
         for model_name in models_to_try:
-            try:
-                print(f"[DEBUG] Attempting AI evaluation with {model_name}...")
-                model = genai.GenerativeModel(model_name)
-                response = model.generate_content([prompt, {"mime_type": mime, "data": img_base64}])
-                return response.text
-            except Exception as e:
-                last_error = e
-                print(f"[RECOVERY] Model {model_name} failed: {str(e)}")
+            for attempt in range(2): # Try each model up to 2 times to handle network flakiness
+                try:
+                    print(f"[DEBUG] Attempting AI evaluation with {model_name} (Attempt {attempt + 1})...")
+                    model = genai.GenerativeModel(model_name)
+                    response = model.generate_content([prompt, {"mime_type": mime, "data": img_base64}])
+                    return response.text
+                except Exception as e:
+                    last_error = e
+                    print(f"[RECOVERY] Model {model_name} (Attempt {attempt + 1}) failed: {str(e)}")
+                    time.sleep(1)
         
         # Re-raise standard exception if all models fail
         if last_error is not None:
@@ -320,8 +323,16 @@ class EvaluationProcessor:
     def process_master_key(self, image_bytes, api_key=None):
         nparr = np.frombuffer(image_bytes, np.uint8); img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
         if img is None: return []
-        img = self.detect_and_warp(img); ext = ".jpg" if img.shape[2] == 3 else ".png"; mime = "image/jpeg" if ext == ".jpg" else "image/png"
-        _, buf = cv2.imencode(ext, img); img_b64 = base64.b64encode(buf).decode("utf-8")
+        img = self.detect_and_warp(img)
+        ext = ".jpg" if img.shape[2] == 3 else ".png"
+        mime = "image/jpeg" if ext == ".jpg" else "image/png"
+        
+        if ext == ".jpg":
+            _, buf = cv2.imencode('.jpg', img, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
+        else:
+            _, buf = cv2.imencode(ext, img)
+            
+        img_b64 = base64.b64encode(buf).decode("utf-8")
         prompt = """Analyze master OMR. Return ONLY JSON array: [{"id": 1, "correct": "A", "marks": 1, "negativeEnabled": true, "negativeValue": 0.25}, ...]"""
         try:
             response_text = self.call_gemini(prompt, mime, img_b64, override_key=api_key)
@@ -337,7 +348,13 @@ class EvaluationProcessor:
         img = self.detect_and_warp(img)
         ext = ".jpg" if img.shape[2] == 3 else ".png"
         mime = "image/jpeg" if ext == ".jpg" else "image/png"
-        _, buf = cv2.imencode(ext, img)
+        
+        # Apply JPEG compression to drastically reduce base64 size and prevent network timeouts
+        if ext == ".jpg":
+            _, buf = cv2.imencode('.jpg', img, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
+        else:
+            _, buf = cv2.imencode(ext, img)
+            
         img_b64 = base64.b64encode(buf).decode("utf-8")
         
         prompt = f"""
@@ -370,8 +387,16 @@ class EvaluationProcessor:
     def evaluate_theory(self, image_bytes, context, max_marks, api_key=None):
         nparr = np.frombuffer(image_bytes, np.uint8); img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
         if img is None: return {}
-        img = self.detect_and_warp(img); ext = ".jpg" if img.shape[2] == 3 else ".png"; mime = "image/jpeg" if ext == ".jpg" else "image/png"
-        _, buf = cv2.imencode(ext, img); img_b64 = base64.b64encode(buf).decode("utf-8")
+        img = self.detect_and_warp(img)
+        ext = ".jpg" if img.shape[2] == 3 else ".png"
+        mime = "image/jpeg" if ext == ".jpg" else "image/png"
+        
+        if ext == ".jpg":
+            _, buf = cv2.imencode('.jpg', img, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
+        else:
+            _, buf = cv2.imencode(ext, img)
+            
+        img_b64 = base64.b64encode(buf).decode("utf-8")
         
         prompt = f"""
         Role: Expert Academic Examiner.
