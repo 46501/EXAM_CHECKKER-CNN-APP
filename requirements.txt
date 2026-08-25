@@ -6,3 +6,5 @@ google-generativeai
 python-multipart
 numpy
 reportlab
+sqlalchemy
+psycopg2-binary

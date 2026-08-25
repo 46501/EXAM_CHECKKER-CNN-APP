@@ -5,6 +5,12 @@ import sys
 from pathlib import Path
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Header, Depends
 from sqlalchemy.orm import Session
+
+# Add server directory to path so modules can be imported when running from root (e.g. Render)
+server_dir = os.path.dirname(os.path.abspath(__file__))
+if server_dir not in sys.path:
+    sys.path.insert(0, server_dir)
+
 from database import engine, get_db
 import models
 
@@ -13,10 +19,6 @@ models.Base.metadata.create_all(bind=engine)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-# Add server directory to path so processor can be imported when running from root
-server_dir = os.path.dirname(os.path.abspath(__file__))
-if server_dir not in sys.path:
-    sys.path.insert(0, server_dir)
 
 from processor import EvaluationProcessor
 import uvicorn
