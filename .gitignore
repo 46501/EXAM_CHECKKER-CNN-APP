@@ -1,16 +1,27 @@
-# Environment
 .env
-.venv/
+.env.*
+!.env.example
+
+# Python
 __pycache__/
 *.pyc
+.venv/
+venv/
 
-# IDE
+# Node
+node_modules/
+
+# Logs
+*.log
+
+# OS / IDE
+.DS_Store
+Thumbs.db
 .vscode/
 .idea/
 
-# OS
-Thumbs.db
-.DS_Store
+# Local/test files
+*.local
 
 # Scratch/dev files
 scratch/
