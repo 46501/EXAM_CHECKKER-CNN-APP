@@ -37,7 +37,9 @@ async def generate_report(data: dict):
             headers={"Content-Disposition": "attachment; filename=EvaluationReport.pdf"}
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail="Unable to generate report right now. Please try again later.")
 
 @app.post("/evaluate/master-key")
 async def evaluate_master_key(
@@ -60,7 +62,7 @@ async def evaluate_master_key(
         import traceback
         print("[CRITICAL] Master Key Processing Failed!")
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Unable to process the master key right now. Please try again later.")
 
 @app.post("/evaluate/mcq")
 async def evaluate_mcq(
@@ -81,7 +83,7 @@ async def evaluate_mcq(
             traceback.print_exc()
         except Exception:
             pass
-        raise HTTPException(status_code=500, detail=str(e) if str(e) else "Unknown Server Error")
+        raise HTTPException(status_code=500, detail="Unable to process your evaluation right now. Please try again later.")
 
 @app.post("/evaluate/theory")
 async def evaluate_theory(
@@ -108,7 +110,7 @@ async def evaluate_theory(
             traceback.print_exc()
         except Exception:
             pass
-        raise HTTPException(status_code=500, detail=str(e) if str(e) else "Unknown Server Error")
+        raise HTTPException(status_code=500, detail="Unable to process your evaluation right now. Please try again later.")
 
 # --- STATIC FILE SERVING (for deployment) ---
 # Serve the client folder so frontend and backend run on the same URL

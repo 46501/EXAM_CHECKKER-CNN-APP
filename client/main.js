@@ -608,6 +608,13 @@ async function handleMasterKey(file) {
             method: 'POST',
             body: formData
         });
+        
+        if (!response.ok) {
+            const rawErr = await response.text();
+            console.error("API Error (Master Key):", response.status, rawErr);
+            throw new Error('Unable to process the evaluation right now. Please try again later.');
+        }
+
         const data = await response.json();
         if (data.status === 'success') {
             state.questions = data.detectedKey;
@@ -689,8 +696,9 @@ async function handleBatch(rawFiles) {
             });
             
             if (!response.ok) {
-                const errData = await response.json().catch(() => ({ detail: 'Server error' }));
-                throw new Error(errData.detail || 'Server error');
+                const rawErr = await response.text();
+                console.error("API Error (MCQ Batch):", response.status, rawErr);
+                throw new Error('Unable to process the evaluation right now. Please try again later.');
             }
             
             const data = await response.json();
@@ -1027,8 +1035,9 @@ async function processTheoryFinal() {
         });
 
         if (!response.ok) {
-            const errData = await response.json().catch(() => ({ detail: 'Evaluation failed' }));
-            throw new Error(errData.detail || 'Evaluation failed');
+            const rawErr = await response.text();
+            console.error("API Error (Theory):", response.status, rawErr);
+            throw new Error('Unable to process your evaluation right now. Please try again later.');
         }
 
         const data = await response.json();
@@ -1036,7 +1045,7 @@ async function processTheoryFinal() {
         renderDashboard('theory');
     } catch (err) {
         console.error(err);
-        showNotification('Evaluation failed: ' + err.message + '\n\nEnsure server is running and your Gemini API key is valid.', 'error');
+        showNotification(err.message || 'Unable to process your evaluation right now. Please try again later.', 'error');
     } finally {
         hideLoading();
     }
@@ -1061,8 +1070,9 @@ async function processMCQ(imageBlob) {
         });
 
         if (!response.ok) {
-            const errData = await response.json().catch(() => ({ detail: 'Server error' }));
-            throw new Error(errData.detail || 'Server error');
+            const rawErr = await response.text();
+            console.error("API Error (MCQ Single):", response.status, rawErr);
+            throw new Error('Unable to process your evaluation right now. Please try again later.');
         }
 
         const data = await response.json();
@@ -1076,7 +1086,7 @@ async function processMCQ(imageBlob) {
         }
     } catch (err) {
         console.error('OMR Error:', err);
-        showNotification('Error processing OMR: ' + err.message, 'error');
+        showNotification(err.message || 'Unable to process your evaluation right now. Please try again later.', 'error');
     }
     finally { hideLoading(); }
 }
@@ -1349,8 +1359,10 @@ function showNotification(message, type = 'info') {
         info: '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="notification-icon-info"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>'
     };
 
+    const displayTitle = type === 'error' ? 'Something went wrong' : (type.charAt(0).toUpperCase() + type.slice(1));
+    
     elements.notificationIcon.innerHTML = icons[type] || icons.info;
-    elements.notificationTitle.innerText = type.charAt(0).toUpperCase() + type.slice(1);
+    elements.notificationTitle.innerText = displayTitle;
     elements.notificationMessage.innerText = message;
     elements.notificationOverlay.style.display = 'flex';
     elements.notificationOverlay.classList.add('active');
