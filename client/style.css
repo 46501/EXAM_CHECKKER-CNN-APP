@@ -1874,6 +1874,194 @@ header,
 }
 
 /* ============================================
+   RESPONSIVE DESIGN OVERHAUL
+   ============================================ */
+
+/* LANDING PAGE SPECIFIC CLASSES */
+.landing-header {
+    display: flex; justify-content: space-between; align-items: center; padding: 1.5rem 3rem; background: transparent; position: relative; z-index: 10;
+}
+.landing-nav {
+    display: flex; gap: 2rem;
+}
+.landing-header-right {
+    display: flex; gap: 1rem; align-items: center;
+}
+.hero-section {
+    flex: 1; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; padding: 0.5rem 4rem 2rem; position: relative; z-index: 1;
+}
+.hero-left-col {
+    flex: 1; min-width: 400px; max-width: 600px; padding-right: 2rem;
+}
+.hero-right-col {
+    flex: 1.2; position: relative; display: flex; justify-content: flex-end; align-items: center; min-height: 600px; min-width: 600px;
+}
+.hero-buttons {
+    display: flex; gap: 1rem;
+}
+.hero-badge {
+    display: inline-block; padding: 0.5rem 1rem; background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.2); border-radius: 99px; color: var(--text-dim); font-size: 0.85rem; margin-bottom: 2rem; font-weight: 500;
+}
+
+/* ================== BREAKPOINTS ================== */
+
+@media (max-width: 1024px) {
+    /* Hero Section */
+    .hero-section {
+        flex-direction: column;
+        padding: 0.5rem 2rem 2rem;
+    }
+    .hero-left-col {
+        min-width: 100%;
+        padding-right: 0;
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+    .hero-buttons {
+        justify-content: center;
+    }
+    .hero-right-col {
+        min-width: 100%;
+        min-height: 450px;
+        justify-content: center;
+        transform: scale(0.85);
+        transform-origin: center center;
+    }
+    
+    /* Navigation */
+    .landing-header {
+        padding: 1rem 1.5rem;
+    }
+}
+
+@media (max-width: 768px) {
+    /* Landing Nav Mobile Toggle */
+    .landing-nav {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: var(--bg);
+        flex-direction: column;
+        padding: 1.5rem;
+        gap: 1.5rem;
+        border-bottom: 1px solid var(--border);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        text-align: center;
+    }
+    .landing-nav.active {
+        display: flex;
+    }
+    #landingMenuBtn {
+        display: block !important;
+    }
+    .mobile-only-nav-buttons {
+        display: flex !important;
+    }
+    
+    .landing-header-right > .btn-primary, 
+    .landing-header-right > .btn-outline {
+        display: none !important;
+    }
+    
+    .hero-buttons {
+        flex-direction: column;
+        width: 100%;
+    }
+    .hero-buttons .btn {
+        width: 100%;
+    }
+    
+    /* Sidebar / Dashboard Mobile */
+    .sidebar {
+        position: fixed;
+        left: -100%;
+        top: 0;
+        bottom: 0;
+        z-index: 9999;
+        transition: left 0.3s ease;
+        box-shadow: 10px 0 30px rgba(0,0,0,0.5);
+    }
+    .sidebar.active {
+        left: 0;
+    }
+    /* Mobile Header */
+    .mobile-header {
+        display: flex;
+        align-items: center;
+        padding: 1rem;
+        background: var(--sidebar-bg);
+        border-bottom: 1px solid var(--border);
+        justify-content: space-between;
+    }
+    
+    .main-content {
+        padding: 1rem;
+        padding-top: 2rem;
+    }
+    
+    header { /* Dashboard header */
+        justify-content: flex-end;
+    }
+    
+    /* Grids & Layouts */
+    .grid {
+        grid-template-columns: 1fr !important;
+    }
+    
+    .stepper {
+        flex-wrap: wrap;
+        justify-content: flex-start;
+        gap: 1rem;
+    }
+    .stepper .step {
+        width: auto;
+    }
+    
+    /* Modals */
+    .modal-content {
+        width: 95% !important;
+        margin: 1rem auto;
+        padding: 1.5rem !important;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+    
+    /* Forms & Inputs */
+    .upload-zone {
+        padding: 1.5rem;
+    }
+    
+    /* Result Tables Container */
+    .card {
+        overflow-x: auto;
+    }
+    table {
+        min-width: 600px; /* force horizontal scroll if cramped */
+    }
+    
+    .hero-right-col {
+        transform: scale(0.65);
+        min-height: 350px;
+    }
+}
+
+@media (max-width: 480px) {
+    .landing-header {
+        padding: 1rem;
+    }
+    
+    .hero-right-col {
+        transform: scale(0.5);
+        min-height: 250px;
+    }
+    h1 {
+        font-size: 2.5rem !important;
+    }
+}
+
+/* ============================================
    PRINT STYLES
    ============================================ */
 @media print {
