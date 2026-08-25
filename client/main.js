@@ -1710,7 +1710,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const baseZ = 0;
 
         function updateTransform() {
-            heroObject.style.transform = `rotateY(${currentRotationY}deg) rotateX(${baseX}deg) rotateZ(${baseZ}deg) scale(0.95)`;
+            heroObject.style.transform = `rotateX(${baseX}deg) rotateY(${currentRotationY}deg) rotateZ(${baseZ}deg) scale(0.95)`;
         }
 
         // Apply momentum/friction loop
