@@ -80,12 +80,24 @@ async def evaluate_mcq(
 ):
     try:
         filename = file.filename.encode('ascii', 'ignore').decode() if file.filename else "unknown"
-        print(f"[SERVER] Received MCQ Upload: {filename}")
+        print(f"[STAGE] Received MCQ Upload: {filename}")
+        
+        print("[STAGE] Parsing config JSON...")
         question_key = json.loads(config)
+        
+        print("[STAGE] Reading image bytes...")
         image_bytes = await file.read()
+        
+        print("[STAGE] Calling processor.process_omr...")
         results = processor.process_omr(image_bytes, question_key, x_gemini_api_key)
+        
+        print("[STAGE] MCQ Evaluation successful, returning 200 OK")
         return {"status": "success", "results": results}
+    except ValueError as ve:
+        print(f"[STAGE ERROR] User/Validation error: {str(ve)}")
+        raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
+        print("[STAGE ERROR] Unhandled exception in evaluate_mcq")
         import traceback
         try:
             traceback.print_exc()

@@ -293,6 +293,7 @@ class EvaluationProcessor:
     def call_gemini(self, prompt, mime, img_base64, override_key=None):
         """Helper to call Gemini with specific models. Uses override_key if provided."""
         
+        print("[STAGE: call_gemini] Configuring API key...")
         # Configure API Key and force REST transport to avoid gRPC proxy drops
         if override_key in ["null", "undefined", "", None, "null", "undefined"]:
             current_api_key = os.getenv("GEMINI_API_KEY")
@@ -300,7 +301,7 @@ class EvaluationProcessor:
             current_api_key = override_key
             
         if not current_api_key:
-            raise Exception("No Gemini API Key provided. Set one in Settings.")
+            raise ValueError("No Gemini API Key provided. Please set your API Key in the Settings panel.")
             
         genai.configure(api_key=current_api_key, transport="rest")
         
@@ -312,21 +313,23 @@ class EvaluationProcessor:
         for model_name in models_to_try:
             for attempt in range(3): # Try each model up to 3 times to handle network flakiness
                 try:
-                    print(f"[DEBUG] Attempting AI evaluation with {model_name} (Attempt {attempt + 1})...")
+                    print(f"[STAGE: call_gemini] Attempting generation with {model_name} (Attempt {attempt + 1})...")
                     model = genai.GenerativeModel(model_name)
                     # Explicit timeout of 60 seconds
                     response = model.generate_content(
                         [prompt, {"mime_type": mime, "data": img_base64}],
                         request_options={"timeout": 60}
                     )
+                    print(f"[STAGE: call_gemini] Generation successful!")
                     return response.text
                 except Exception as e:
                     last_error = e
-                    print(f"[RECOVERY] Model {model_name} (Attempt {attempt + 1}) failed: {str(e)}")
+                    print(f"[STAGE ERROR: call_gemini] Model {model_name} (Attempt {attempt + 1}) failed: {str(e)}")
                     # Exponential backoff with jitter
                     sleep_time = (2 ** attempt) + random.uniform(0, 1)
                     time.sleep(sleep_time)
         
+        print("[STAGE ERROR: call_gemini] All models failed.")
         # Re-raise standard exception if all models fail
         if last_error is not None:
             raise last_error
@@ -354,19 +357,27 @@ class EvaluationProcessor:
 
     def process_omr(self, image_bytes, question_key, api_key=None):
         """High-precision OMR detection using Gemini 2.0 Flash with structural reasoning."""
-        nparr = np.frombuffer(image_bytes, np.uint8); img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-        if img is None: return []
+        print("[STAGE: process_omr] Starting OMR processing...")
         
+        print("[STAGE: process_omr] Decoding image bytes...")
+        nparr = np.frombuffer(image_bytes, np.uint8); img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        if img is None: 
+            print("[STAGE ERROR: process_omr] cv2.imdecode failed.")
+            raise ValueError("Invalid or corrupted image file uploaded. Please capture or upload a clear OMR image.")
+        
+        print("[STAGE: process_omr] Running detect_and_warp...")
         img = self.detect_and_warp(img)
         ext = ".jpg" if img.shape[2] == 3 else ".png"
         mime = "image/jpeg" if ext == ".jpg" else "image/png"
         
+        print(f"[STAGE: process_omr] Encoding image to {ext} (Quality=80)...")
         # Apply JPEG compression to drastically reduce base64 size and prevent network timeouts
         if ext == ".jpg":
             _, buf = cv2.imencode('.jpg', img, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
         else:
             _, buf = cv2.imencode(ext, img)
             
+        print("[STAGE: process_omr] Converting to base64...")
         img_b64 = base64.b64encode(buf).decode("utf-8")
         
         prompt = f"""
@@ -385,15 +396,21 @@ class EvaluationProcessor:
             {{"q": 1, "selected": "A", "isCorrect": true, "confidence": 0.98}},
             ...
         ]
-        """
         try:
+            print("[STAGE: process_omr] Calling Gemini API...")
             response_text = self.call_gemini(prompt, mime, img_b64, override_key=api_key)
+            
+            print("[STAGE: process_omr] Cleaning JSON response...")
             result = self.clean_json(response_text)
+            
             if not result:
-                raise ValueError("AI returned invalid JSON or unrecognized format")
+                print("[STAGE ERROR: process_omr] JSON cleaning returned None")
+                raise ValueError("The AI could not read this OMR sheet or returned an invalid format. Please ensure the image is clear and try again.")
+                
+            print("[STAGE: process_omr] OMR processing successfully returning result.")
             return result
         except Exception as e:
-            print(f"[CRITICAL] OMR AI Detection failed: {e}")
+            print(f"[STAGE ERROR: process_omr] OMR Evaluation failed: {str(e)}")
             raise Exception(f"OMR failed: {str(e)}")
 
     def evaluate_theory(self, image_bytes, context, max_marks, api_key=None):

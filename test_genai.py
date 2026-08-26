@@ -9,7 +9,8 @@ try:
     print("Configure OK")
     
     model = genai.GenerativeModel("models/gemini-3.1-flash-lite-preview")
-    res = model.generate_content("Hello")
+    res = model.generate_content("Hello", request_options={"timeout": 60})
     print("Response:", res.text)
 except Exception as e:
-    print("Error:", repr(e))
+    import traceback
+    traceback.print_exc()
