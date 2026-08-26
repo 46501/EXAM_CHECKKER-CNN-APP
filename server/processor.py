@@ -431,22 +431,57 @@ class EvaluationProcessor:
         
         prompt = f"""
         Role: Expert Academic Examiner.
-        Question Context: {context}
+        Question Context (What was asked): {context}
 
-        Analyze the handwriting and content. Return ONLY JSON with this EXACT structure:
+        Instructions:
+        1. Extract the handwritten text accurately from the image.
+        2. Evaluate the extracted answer based on SEMANTIC MEANING and RELEVANCE to the Question Context.
+        3. Do NOT strictly require exact keyword matches. If the student conveys the correct concept in their own words, award full or partial marks.
+        4. Award partial marks for partially correct or incomplete answers.
+        5. If the answer is completely incorrect or irrelevant, award 0 marks.
+        6. If the handwriting is completely illegible or empty, state that in the feedback and award 0 marks.
+        
+        Return ONLY valid JSON with this EXACT structure (no markdown, no extra text):
         {{
-            "score": <0-{max_marks}>,
+            "score": <number between 0 and {max_marks}>,
             "maxScore": {max_marks},
             "feedback": {{
-                "strengths": "<brief positive points>",
-                "deductions": "<specifically why marks were lost>",
-                "improvements": "<one actionable tip for next time>"
+                "strengths": "<brief positive points, or 'None'>",
+                "deductions": "<specifically why marks were lost, if any>",
+                "improvements": "<one actionable tip>"
             }},
-            "extractedText": "<exact transcription>"
+            "extractedText": "<exact transcription of the student's answer>"
         }}
         """
         try:
+            print("[STAGE: evaluate_theory] Calling Gemini API...")
             response_text = self.call_gemini(prompt, mime, img_b64, override_key=api_key)
-            return self.clean_json(response_text) or {}
+            print("[STAGE: evaluate_theory] Cleaning JSON...")
+            result = self.clean_json(response_text)
+            
+            if not result:
+                print("[STAGE ERROR: evaluate_theory] AI returned non-JSON format.")
+                raise ValueError("The AI could not evaluate this answer. Please ensure the handwriting is legible and try again.")
+                
+            # Robustly parse the score to ensure it is numeric, catching cases where AI returns strings like "8/10"
+            import re
+            score_str = str(result.get('score', 0))
+            max_score_str = str(result.get('maxScore', max_marks))
+            
+            score_match = re.search(r'([\d.]+)', score_str)
+            result['score'] = float(score_match.group(1)) if score_match else 0.0
+            
+            max_score_match = re.search(r'([\d.]+)', max_score_str)
+            result['maxScore'] = float(max_score_match.group(1)) if max_score_match else float(max_marks)
+            
+            # Ensure score does not exceed maxScore
+            if result['score'] > result['maxScore']:
+                result['score'] = result['maxScore']
+                
+            print(f"[STAGE: evaluate_theory] Success. Score: {result['score']}/{result['maxScore']}")
+            return result
+        except ValueError as ve:
+            raise ve
         except Exception as e:
-            print(f"[CRITICAL] Theory AI failed: {e}"); return {}
+            print(f"[STAGE ERROR: evaluate_theory] Theory AI failed: {e}")
+            raise Exception(f"Theory evaluation failed: {str(e)}")

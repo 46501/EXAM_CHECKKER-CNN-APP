@@ -126,6 +126,9 @@ async def evaluate_theory(
         print(f"[SERVER] Theory Evaluation Complete")
         return result
         
+    except ValueError as ve:
+        print(f"[STAGE ERROR: evaluate_theory] User/Validation error: {str(ve)}")
+        raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         import traceback
         print("[CRITICAL] Theory Evaluation Failed!")
