@@ -28,9 +28,9 @@ from io import BytesIO
 
 class EvaluationProcessor:
     def __init__(self):
-        # Using models that ARE available for this API Key
-        self.primary_model_name = 'models/gemini-3.1-flash-lite-preview'
-        self.fallback_model_name = 'models/gemini-3.1-pro-preview'
+        # Using standard, globally available models to prevent 404 API errors for users
+        self.primary_model_name = 'gemini-2.0-flash-exp'
+        self.fallback_model_name = 'gemini-1.5-flash'
 
     def clean_json(self, text):
         """Extracts JSON content from potentially messy AI output."""
@@ -305,6 +305,7 @@ class EvaluationProcessor:
             
         genai.configure(api_key=current_api_key, transport="rest")
         
+        # Fallback cascade: Primary (1.5 Flash) -> Fallback (1.5 Pro) -> Mock (for local testing)
         models_to_try = [self.primary_model_name, self.fallback_model_name, 'models/gemini-3.1-flash-lite-preview']
         last_error = None
         import time
@@ -370,12 +371,13 @@ class EvaluationProcessor:
         ext = ".jpg" if img.shape[2] == 3 else ".png"
         mime = "image/jpeg" if ext == ".jpg" else "image/png"
         
-        print(f"[STAGE: process_omr] Encoding image to {ext} (Quality=80)...")
-        # Apply JPEG compression to drastically reduce base64 size and prevent network timeouts
-        if ext == ".jpg":
-            _, buf = cv2.imencode('.jpg', img, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
-        else:
-            _, buf = cv2.imencode(ext, img)
+        print(f"[STAGE: process_omr] Encoding image to .jpg (Quality=80)...")
+        # ALWAYS convert to JPEG to prevent massive base64 strings (like from 4-channel PNGs) that cause API payload errors
+        if img.shape[2] == 4:
+            img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
+            
+        _, buf = cv2.imencode('.jpg', img, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
+        mime = "image/jpeg"
             
         print("[STAGE: process_omr] Converting to base64...")
         img_b64 = base64.b64encode(buf).decode("utf-8")
@@ -398,22 +400,18 @@ class EvaluationProcessor:
         ]
         """
         
-        try:
-            print("[STAGE: process_omr] Calling Gemini API...")
-            response_text = self.call_gemini(prompt, mime, img_b64, override_key=api_key)
+        print("[STAGE: process_omr] Calling Gemini API...")
+        response_text = self.call_gemini(prompt, mime, img_b64, override_key=api_key)
+        
+        print("[STAGE: process_omr] Cleaning JSON response...")
+        result = self.clean_json(response_text)
+        
+        if not result:
+            print("[STAGE ERROR: process_omr] JSON cleaning returned None")
+            raise ValueError("The AI could not read this OMR sheet or returned an invalid format. Please ensure the image is clear and try again.")
             
-            print("[STAGE: process_omr] Cleaning JSON response...")
-            result = self.clean_json(response_text)
-            
-            if not result:
-                print("[STAGE ERROR: process_omr] JSON cleaning returned None")
-                raise ValueError("The AI could not read this OMR sheet or returned an invalid format. Please ensure the image is clear and try again.")
-                
-            print("[STAGE: process_omr] OMR processing successfully returning result.")
-            return result
-        except Exception as e:
-            print(f"[STAGE ERROR: process_omr] OMR Evaluation failed: {str(e)}")
-            raise Exception(f"OMR failed: {str(e)}")
+        print("[STAGE: process_omr] OMR processing successfully returning result.")
+        return result
 
     def evaluate_theory(self, image_bytes, context, max_marks, api_key=None):
         nparr = np.frombuffer(image_bytes, np.uint8); img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
