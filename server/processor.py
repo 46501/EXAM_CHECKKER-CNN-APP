@@ -396,6 +396,8 @@ class EvaluationProcessor:
             {{"q": 1, "selected": "A", "isCorrect": true, "confidence": 0.98}},
             ...
         ]
+        """
+        
         try:
             print("[STAGE: process_omr] Calling Gemini API...")
             response_text = self.call_gemini(prompt, mime, img_b64, override_key=api_key)
