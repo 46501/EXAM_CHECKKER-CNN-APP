@@ -293,27 +293,35 @@ class EvaluationProcessor:
     def call_gemini(self, prompt, mime, img_base64, override_key=None):
         """Helper to call Gemini with specific models. Uses override_key if provided."""
         
-        # Configure API Key for THIS request
+        # Configure API Key and force REST transport to avoid gRPC proxy drops
         current_api_key = override_key if override_key else os.getenv("GEMINI_API_KEY")
         if not current_api_key:
             raise Exception("No Gemini API Key provided. Set one in Settings.")
             
-        genai.configure(api_key=current_api_key)
+        genai.configure(api_key=current_api_key, transport="rest")
         
         models_to_try = [self.primary_model_name, self.fallback_model_name, 'models/gemini-3.1-flash-lite-preview']
         last_error = None
         import time
+        import random
+        
         for model_name in models_to_try:
-            for attempt in range(2): # Try each model up to 2 times to handle network flakiness
+            for attempt in range(3): # Try each model up to 3 times to handle network flakiness
                 try:
                     print(f"[DEBUG] Attempting AI evaluation with {model_name} (Attempt {attempt + 1})...")
                     model = genai.GenerativeModel(model_name)
-                    response = model.generate_content([prompt, {"mime_type": mime, "data": img_base64}])
+                    # Explicit timeout of 60 seconds
+                    response = model.generate_content(
+                        [prompt, {"mime_type": mime, "data": img_base64}],
+                        request_options={"timeout": 60}
+                    )
                     return response.text
                 except Exception as e:
                     last_error = e
                     print(f"[RECOVERY] Model {model_name} (Attempt {attempt + 1}) failed: {str(e)}")
-                    time.sleep(1)
+                    # Exponential backoff with jitter
+                    sleep_time = (2 ** attempt) + random.uniform(0, 1)
+                    time.sleep(sleep_time)
         
         # Re-raise standard exception if all models fail
         if last_error is not None:
