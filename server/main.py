@@ -89,6 +89,9 @@ async def evaluate_mcq(
         import traceback
         try:
             traceback.print_exc()
+            with open("debug_error.log", "w") as f:
+                f.write(f"Exception: {str(e)}\n")
+                f.write(traceback.format_exc())
         except Exception:
             pass
         raise HTTPException(status_code=500, detail="Unable to process your evaluation right now. Please try again later.")

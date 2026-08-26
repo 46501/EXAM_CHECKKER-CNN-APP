@@ -294,7 +294,11 @@ class EvaluationProcessor:
         """Helper to call Gemini with specific models. Uses override_key if provided."""
         
         # Configure API Key and force REST transport to avoid gRPC proxy drops
-        current_api_key = override_key if override_key else os.getenv("GEMINI_API_KEY")
+        if override_key in ["null", "undefined", "", None, "null", "undefined"]:
+            current_api_key = os.getenv("GEMINI_API_KEY")
+        else:
+            current_api_key = override_key
+            
         if not current_api_key:
             raise Exception("No Gemini API Key provided. Set one in Settings.")
             
